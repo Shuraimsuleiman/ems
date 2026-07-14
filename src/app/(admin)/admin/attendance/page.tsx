@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { RefreshCwIcon } from "lucide-react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { AttendanceLog } from "@/types/database"
@@ -37,9 +37,9 @@ export default function AttendancePage() {
     },
   })
 
-  const startDate = form.watch("startDate")
-  const endDate = form.watch("endDate")
-  const workerId = form.watch("workerId")
+  const startDate = useWatch({ control: form.control, name: "startDate" })
+  const endDate = useWatch({ control: form.control, name: "endDate" })
+  const workerId = useWatch({ control: form.control, name: "workerId" })
 
   const { data: workers } = useQuery({
     queryKey: workerKeys.lists(),

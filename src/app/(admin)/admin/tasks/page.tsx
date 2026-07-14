@@ -40,7 +40,7 @@ import {
   CommandInput,
   CommandItem,
 } from "@/components/ui/command"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { PlusIcon, PencilIcon, Trash2Icon, CheckIcon, ChevronsUpDownIcon, EyeIcon } from "lucide-react"
@@ -72,7 +72,7 @@ function TasksContent() {
   const searchParams = useSearchParams()
   const projectFilter = searchParams.get("project_id") ?? undefined
   const queryClient = useQueryClient()
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
   const [createOpen, setCreateOpen] = useState(false)
   const [createSubmitting, setCreateSubmitting] = useState(false)
   const [createSelectedWorkers, setCreateSelectedWorkers] = useState<string[]>([])
@@ -166,6 +166,7 @@ function TasksContent() {
         priority: editTask.priority,
         deadline: editTask.deadline ? editTask.deadline.split("T")[0] : "",
       })
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEditSelectedWorkers(editTask.task_assignments.map((a) => a.worker_id))
     }
   }, [editTask, editForm])
@@ -251,7 +252,7 @@ function TasksContent() {
     setViewTask(null)
     queryClient.invalidateQueries({ queryKey: taskKeys.lists() })
     toast.success("Task updated")
-  }, [editTask, editSelectedWorkers, supabase, queryClient])
+  }, [editTask, editSelectedWorkers, supabase, queryClient, setEditSubmitting, setEditTask, setViewTask])
 
   const handleDelete = useCallback(async () => {
     if (!deleteTask) return
@@ -266,7 +267,7 @@ function TasksContent() {
     setViewTask((prev) => (prev?.id === deleteTask.id ? null : prev))
     queryClient.invalidateQueries({ queryKey: taskKeys.lists() })
     toast.success("Task deleted")
-  }, [deleteTask, supabase, queryClient])
+  }, [deleteTask, supabase, queryClient, setDeleteLoading, setDeleteTask, setViewTask])
 
   const profileMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -351,7 +352,7 @@ function TasksContent() {
         </div>
       ),
     },
-  ], [projects])
+  ], [projects, setViewTask, setEditTask, setDeleteTask])
 
   const projectName = (id: string) => projects?.find((p) => p.id === id)?.name ?? id
 
@@ -405,59 +406,68 @@ function TasksContent() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Project</Label>
-                <Select
-                  value={createForm.watch("project_id")}
-                   onValueChange={(v) => createForm.setValue("project_id", v ?? "")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects?.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={createForm.control}
+                  name="project_id"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects?.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Priority</Label>
-                <Select
-                  value={createForm.watch("priority")}
-                   onValueChange={(v) => createForm.setValue("priority", v ?? "medium")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {priorityOptions.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={createForm.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {priorityOptions.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {p.replace(/_/g, " ")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select
-                  value={createForm.watch("status")}
-                   onValueChange={(v) => createForm.setValue("status", v ?? "pending")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={createForm.control}
+                  name="status"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s.replace(/_/g, " ")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="create-deadline">Deadline</Label>
@@ -619,59 +629,68 @@ function TasksContent() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Project</Label>
-                <Select
-                  value={editForm.watch("project_id")}
-                   onValueChange={(v) => editForm.setValue("project_id", v ?? "")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects?.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={editForm.control}
+                  name="project_id"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects?.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Priority</Label>
-                <Select
-                  value={editForm.watch("priority")}
-                   onValueChange={(v) => editForm.setValue("priority", v ?? "medium")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {priorityOptions.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={editForm.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {priorityOptions.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {p.replace(/_/g, " ")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select
-                  value={editForm.watch("status")}
-                   onValueChange={(v) => editForm.setValue("status", v ?? "pending")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={editForm.control}
+                  name="status"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s.replace(/_/g, " ")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-deadline">Deadline</Label>

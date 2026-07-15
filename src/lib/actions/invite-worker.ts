@@ -11,27 +11,31 @@ export async function inviteWorker(
   const fullName = formData.get("full_name") as string
   const role = formData.get("role") as string
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY
+
+  if (!supabaseUrl) {
     console.error("[inviteWorker] Missing env var: NEXT_PUBLIC_SUPABASE_URL")
     return { error: "Server configuration error: NEXT_PUBLIC_SUPABASE_URL is not set." }
   }
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.error("[inviteWorker] Missing env var: NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    return { error: "Server configuration error: NEXT_PUBLIC_SUPABASE_ANON_KEY is not set." }
+  if (!supabaseAnonKey) {
+    console.error("[inviteWorker] Missing env var: NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)")
+    return { error: "Server configuration error: Supabase anon/publishable key is not set." }
   }
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("[inviteWorker] Missing env var: SUPABASE_SERVICE_ROLE_KEY")
-    return { error: "Server configuration error: SUPABASE_SERVICE_ROLE_KEY is not set." }
+  if (!supabaseServiceKey) {
+    console.error("[inviteWorker] Missing env var: SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY)")
+    return { error: "Server configuration error: Supabase service/secret key is not set." }
   }
 
-  console.log("[inviteWorker] All env vars loaded. Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log("[inviteWorker] All env vars loaded. Supabase URL:", supabaseUrl)
 
   try {
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      supabaseUrl,
+      supabaseServiceKey,
       {
         auth: {
           autoRefreshToken: false,

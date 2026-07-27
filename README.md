@@ -93,21 +93,21 @@ Accessible by users with role `worker`. It is a simple, clean layout optimized f
 - [x] Create shared components (DataTable, StatusBadge, ConfirmDialog, PageHeader, EmptyState, LoadingSpinner, ErrorAlert)
 
 ### Phase 3: Admin/Manager Portal
-- Dashboard with stat cards (active projects, task completion %, workers count, today's attendance)
-- Projects CRUD (data table, create/edit dialog, detail page with linked tasks)
-- Tasks management (data table with filters, create/edit form, worker assignment via multi-select)
-- Workers page (list, invite via Supabase magic link, view worker detail with assigned tasks & attendance)
-- Attendance overview (date range + worker filter, check-in/out times)
-- Progress reports (list per project, create report form)
+- [x] Dashboard with stat cards (active projects, task completion %, workers count, today's attendance)
+- [x] Projects CRUD (data table, create/edit dialog, detail page with linked tasks)
+- [x] Tasks management (data table with filters, create/edit form, worker assignment via multi-select)
+- [x] Workers page (list, invite via Supabase magic link, view worker detail with assigned tasks & attendance)
+- [x] Attendance overview (date range + worker filter, check-in/out times)
+- [x] Progress reports (list per project, create report form)
 
 ### Phase 4: Worker Portal
-- Dashboard (today's assigned tasks, attendance status, quick actions)
-- My Tasks (full list with status update — pending → in progress → completed)
-- Attendance (check-in/check-out buttons, monthly history table)
-- Profile (read-only info, project assignment history)
+- [x] Dashboard (today's assigned tasks, attendance status, quick actions)
+- [x] My Tasks (full list with status update — pending → in progress → completed)
+- [x] Attendance (check-in/check-out buttons, monthly history table)
+- [x] Profile (read-only info, project assignment history)
 
 ### Phase 5: Polishing & Deployment
-- Mobile responsiveness (sidebar becomes sheet on mobile, responsive tables)
-- Error boundaries and loading skeletons for all pages
-- Deploy to Vercel with environment variables configured
-- Post-deploy end-to-end verification
+- [x] Mobile responsiveness (sidebar becomes sheet on mobile, responsive tables)
+- [x] Error boundaries and loading skeletons for all pages
+- [x] Deploy to Vercel with environment variables configured
+- [x] Post-deploy end-to-end verification

@@ -79,7 +79,13 @@ function MobileNav() {
     <Sheet>
       <SheetTrigger
         render={
-          <Button variant="ghost" size="icon" className="md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            aria-label="Open navigation menu"
+            title="Menu"
+          >
             <MenuIcon className="size-5" />
           </Button>
         }
@@ -107,7 +113,7 @@ function MobileNav() {
         <div className="mt-auto border-t pt-2">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+            className="flex w-full items-center gap-3 rounded-lg border border-destructive/40 px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
           >
             <LogOutIcon className="size-5" />
             Sign out
@@ -131,11 +137,12 @@ function DesktopLogout() {
 
   return (
     <Button
-      variant="ghost"
+      variant="destructive"
       size="icon-sm"
       onClick={handleLogout}
       aria-label="Sign out"
-      className="ml-auto"
+      title="Sign out"
+      className="ml-auto border-destructive/40"
     >
       <LogOutIcon className="size-4" />
     </Button>

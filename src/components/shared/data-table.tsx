@@ -191,6 +191,8 @@ function DataTable<TData>({
               size="icon-xs"
               onClick={() => table.setPageIndex(0)}
               disabled={!table.getCanPreviousPage()}
+              aria-label="First page"
+              title="First page"
             >
               <ChevronsLeftIcon />
             </Button>
@@ -199,6 +201,8 @@ function DataTable<TData>({
               size="icon-xs"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
+              aria-label="Previous page"
+              title="Previous page"
             >
               <ChevronLeftIcon />
             </Button>
@@ -210,6 +214,8 @@ function DataTable<TData>({
               size="icon-xs"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
+              aria-label="Next page"
+              title="Next page"
             >
               <ChevronRightIcon />
             </Button>
@@ -218,6 +224,8 @@ function DataTable<TData>({
               size="icon-xs"
               onClick={() => table.setPageIndex(table.getPageCount() - 1)}
               disabled={!table.getCanNextPage()}
+              aria-label="Last page"
+              title="Last page"
             >
               <ChevronsRightIcon />
             </Button>

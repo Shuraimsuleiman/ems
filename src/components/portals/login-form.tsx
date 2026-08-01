@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ROLES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,8 +42,31 @@ export function LoginForm() {
       return;
     }
 
-    const redirectTo = searchParams.get("redirect") || "/";
-    router.push(redirectTo);
+    const explicitRedirect = searchParams.get("redirect");
+    if (explicitRedirect) {
+      router.push(explicitRedirect);
+      router.refresh();
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single<{ role: string }>();
+
+      if (profile?.role === ROLES.WORKER) {
+        router.push("/worker");
+      } else {
+        router.push("/admin");
+      }
+      router.refresh();
+      return;
+    }
+
+    router.push("/");
     router.refresh();
   };
 

@@ -87,7 +87,7 @@ export default function WorkerProfilePage() {
           <CardContent className="flex items-center justify-between gap-2">
             <span>{profile.full_name}</span>
             <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (open) setEditName(profile.full_name) }}>
-              <DialogTrigger render={<Button variant="ghost" size="icon" className="size-7 shrink-0" />}>
+              <DialogTrigger render={<Button variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Edit name" title="Edit name" />}>
                 <PencilIcon className="size-3.5" />
               </DialogTrigger>
               <DialogContent>

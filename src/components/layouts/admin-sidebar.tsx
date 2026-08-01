@@ -23,7 +23,7 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   MenuIcon,
-  ChevronLeftIcon,
+  BuildingIcon,
   LogOutIcon,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -85,9 +85,12 @@ function SidebarHeader({ collapsed }: { collapsed: boolean }) {
       )}
     >
       {collapsed ? (
-        <ChevronLeftIcon className="size-5 text-muted-foreground" />
+        <BuildingIcon className="size-5 text-muted-foreground" />
       ) : (
-        <span className="text-lg font-semibold tracking-tight">{SITE_NAME}</span>
+        <span className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <BuildingIcon className="size-5" />
+          {SITE_NAME}
+        </span>
       )}
     </div>
   )
@@ -106,11 +109,12 @@ function LogoutButton() {
 
   return (
     <Button
-      variant="ghost"
+      variant="destructive"
       size="icon-sm"
       onClick={handleLogout}
       aria-label="Sign out"
-      className="shrink-0"
+      title="Sign out"
+      className="shrink-0 border-destructive/40"
     >
       <LogOutIcon className="size-4" />
     </Button>
@@ -142,6 +146,7 @@ function DesktopSidebar() {
           size="icon-sm"
           onClick={toggleSidebar}
           aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           {sidebarOpen ? (
             <PanelLeftCloseIcon className="size-4" />
@@ -159,7 +164,12 @@ function MobileSidebar() {
     <Sheet>
       <SheetTrigger
         render={
-          <Button variant="ghost" size="icon">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Open navigation menu"
+            title="Menu"
+          >
             <MenuIcon className="size-5" />
           </Button>
         }

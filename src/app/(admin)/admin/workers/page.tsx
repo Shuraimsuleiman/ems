@@ -30,7 +30,7 @@ import {
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { PlusIcon, EyeIcon } from "lucide-react"
+import { PlusIcon, EyeIcon, EyeOffIcon } from "lucide-react"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Profile } from "@/types/database"
 
@@ -147,6 +147,7 @@ export default function WorkersPage() {
   const queryClient = useQueryClient()
   const supabase = createClient()
   const [open, setOpen] = useState(false)
+  const [showContact, setShowContact] = useState(false)
 
   const { data: workers, isLoading, isError, error } = useQuery({
     queryKey: workerKeys.lists(),
@@ -173,7 +174,11 @@ export default function WorkersPage() {
         </Link>
       ),
     },
-    { accessorKey: "email", header: "Email" },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ getValue }) => (showContact ? (getValue() as string | null) ?? "-" : "*******"),
+    },
     {
       accessorKey: "role",
       header: "Role",
@@ -184,7 +189,7 @@ export default function WorkersPage() {
     {
       accessorKey: "phone",
       header: "Phone",
-      cell: ({ getValue }) => (getValue() as string | null) ?? "-",
+      cell: ({ getValue }) => (showContact ? (getValue() as string | null) ?? "-" : "*******"),
     },
     {
       id: "actions",
@@ -198,7 +203,7 @@ export default function WorkersPage() {
         </Link>
       ),
     },
-  ], [])
+  ], [showContact])
 
   return (
     <div className="space-y-6">
@@ -206,10 +211,21 @@ export default function WorkersPage() {
         title="Workers"
         description="View and manage workers"
         actions={
-          <Button onClick={() => setOpen(true)}>
-            <PlusIcon />
-            Invite Worker
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setShowContact((v) => !v)}
+              aria-pressed={showContact}
+              title={showContact ? "Hide email and phone numbers" : "Show email and phone numbers"}
+            >
+              {showContact ? <EyeOffIcon /> : <EyeIcon />}
+              {showContact ? "Hide contact info" : "Show contact info"}
+            </Button>
+            <Button onClick={() => setOpen(true)}>
+              <PlusIcon />
+              Invite Worker
+            </Button>
+          </>
         }
       />
 

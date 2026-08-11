@@ -43,6 +43,8 @@ export default function WorkerProfilePage() {
   const setProfile = useAuthStore((s) => s.setProfile)
   const [editOpen, setEditOpen] = useState(false)
   const [editName, setEditName] = useState("")
+  const [phoneEditOpen, setPhoneEditOpen] = useState(false)
+  const [editPhone, setEditPhone] = useState("")
 
   const updateName = useMutation({
     mutationFn: async (name: string) => {
@@ -68,6 +70,28 @@ export default function WorkerProfilePage() {
       return
     }
     updateName.mutate(editName.trim())
+  }
+
+  const updatePhone = useMutation({
+    mutationFn: async (phone: string | null) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ phone } as never)
+        .eq("id", profile!.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setProfile({ ...profile!, phone: editPhone.trim() || null })
+      toast.success("Phone updated successfully")
+      setPhoneEditOpen(false)
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to update phone")
+    },
+  })
+
+  function handleSavePhone() {
+    updatePhone.mutate(editPhone.trim() || null)
   }
 
   if (!profile) return null
@@ -127,7 +151,31 @@ export default function WorkerProfilePage() {
           <CardHeader>
             <CardTitle>Phone</CardTitle>
           </CardHeader>
-          <CardContent>{profile.phone ?? "Not set"}</CardContent>
+          <CardContent className="flex items-center justify-between gap-2">
+            <span>{profile.phone ?? "Not set"}</span>
+            <Dialog open={phoneEditOpen} onOpenChange={(open) => { setPhoneEditOpen(open); if (open) setEditPhone(profile.phone ?? "") }}>
+              <DialogTrigger render={<Button variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Edit phone" title="Edit phone" />}>
+                <PencilIcon className="size-3.5" />
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Phone</DialogTitle>
+                </DialogHeader>
+                <Input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="e.g. +234 801 234 5678"
+                />
+                <div className="flex justify-end gap-2">
+                  <DialogClose render={<Button variant="outline">Cancel</Button>} />
+                  <Button onClick={handleSavePhone} disabled={updatePhone.isPending}>
+                    {updatePhone.isPending ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>

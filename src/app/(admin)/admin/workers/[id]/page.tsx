@@ -1,15 +1,26 @@
 "use client"
 
-import { use, useMemo } from "react"
+import { use, useMemo, useState } from "react"
 import Link from "next/link"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { workerKeys, taskKeys, attendanceKeys } from "@/lib/supabase/query-keys"
 import { PageHeader } from "@/components/shared/page-header"
 import { DataTable } from "@/components/shared/data-table"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeftIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { ArrowLeftIcon, PencilIcon } from "lucide-react"
+import { toast } from "sonner"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Task, AttendanceLog } from "@/types/database"
 
@@ -20,6 +31,32 @@ interface Props {
 export default function WorkerDetailPage({ params }: Props) {
   const { id } = use(params)
   const supabase = createClient()
+  const queryClient = useQueryClient()
+  const [phoneEditOpen, setPhoneEditOpen] = useState(false)
+  const [editPhone, setEditPhone] = useState("")
+
+  const updatePhone = useMutation({
+    mutationFn: async (phone: string | null) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ phone } as never)
+        .eq("id", id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workerKeys.detail(id) })
+      queryClient.invalidateQueries({ queryKey: workerKeys.list() })
+      toast.success("Phone updated successfully")
+      setPhoneEditOpen(false)
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to update phone")
+    },
+  })
+
+  function handleSavePhone() {
+    updatePhone.mutate(editPhone.trim() || null)
+  }
 
   const { data: workerData } = useQuery({
     queryKey: workerKeys.detail(id),
@@ -150,7 +187,31 @@ export default function WorkerDetailPage({ params }: Props) {
           <CardHeader>
             <CardTitle>Phone</CardTitle>
           </CardHeader>
-          <CardContent>{workerData.phone ?? "Not set"}</CardContent>
+          <CardContent className="flex items-center justify-between gap-2">
+            <span>{workerData.phone ?? "Not set"}</span>
+            <Dialog open={phoneEditOpen} onOpenChange={(open) => { setPhoneEditOpen(open); if (open) setEditPhone(workerData.phone ?? "") }}>
+              <DialogTrigger render={<Button variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Edit phone" title="Edit phone" />}>
+                <PencilIcon className="size-3.5" />
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Phone</DialogTitle>
+                </DialogHeader>
+                <Input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="e.g. +234 801 234 5678"
+                />
+                <div className="flex justify-end gap-2">
+                  <DialogClose render={<Button variant="outline">Cancel</Button>} />
+                  <Button onClick={handleSavePhone} disabled={updatePhone.isPending}>
+                    {updatePhone.isPending ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>

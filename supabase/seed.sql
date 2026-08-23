@@ -6,12 +6,13 @@
 --   Supabase Auth, their profiles, and attendance logs starting 29 Jul 2026.
 --   15 Abuja projects (water infrastructure, Wuse/Gwarimpa/Karsana buildings,
 --   and federal government contracts) across all 5 project statuses.
---   39 tasks, worker assignments, and 21 progress reports attributed to the
---   first existing admin/manager profile (runtime lookup).
+--   39 tasks, worker assignments plus random extra assignments for a handful
+--   of workers (redrawn on every run), and 29 progress reports attributed to
+--   the first existing admin/manager profile (runtime lookup).
 --
 --   • Emails:        @gmail.com
 --   • Password:      ConstructPro123!  (shared by all seed workers)
---   • Attendance:    Wed 2026-07-29 -> Fri 2026-07-31 (3 working days)
+--   • Attendance:    Wed 2026-07-29 -> Tue 2026-08-25 (weekdays only, ~90% kept)
 --   • Check-in:      9:00 - 9:40 AM  (stored as UTC, i.e. 08:00 - 08:40)
 --   • Check-out:     5:00 - 6:00 PM  (stored as UTC, i.e. 16:00 - 17:00)
 --
@@ -173,7 +174,8 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- -------------------------------
 -- 5) ATTENDANCE LOGS
---    29 Jul -> 31 Jul 2026 · check-in 08:00-08:40 UTC · check-out 16:00-17:00 UTC
+--    29 Jul -> 25 Aug 2026 · weekdays only · ~90% attendance
+--    check-in 08:00-08:40 UTC · check-out 16:00-17:00 UTC
 -- -------------------------------
 INSERT INTO public.attendance_logs (worker_id, date, check_in, check_out)
 SELECT
@@ -188,9 +190,11 @@ SELECT
      + make_interval(mins => floor(random() * 61)::int, secs => floor(random() * 60)::int)
    ) AT TIME ZONE 'UTC' AS check_out
 FROM public.profiles p
-CROSS JOIN generate_series('2026-07-29'::date, '2026-07-31'::date, interval '1 day') AS days(d)
+CROSS JOIN generate_series('2026-07-29'::date, '2026-08-25'::date, interval '1 day') AS days(d)
 WHERE p.role = 'worker'
-  AND p.email IN (SELECT email FROM seed_workers);
+  AND p.email IN (SELECT email FROM seed_workers)
+  AND EXTRACT(ISODOW FROM d) < 6   -- Mon-Fri only, skip weekends
+  AND random() >= 0.10;            -- ~90% attendance, ~10% absent
 
 -- -------------------------------
 -- 6) PROJECTS  (15 · all 5 statuses)
@@ -483,6 +487,42 @@ JOIN public.profiles p ON p.email = a.worker_email
 CROSS JOIN seed_manager m;
 
 -- -------------------------------
+-- 8b) RANDOM EXTRA ASSIGNMENTS
+--     8 randomly chosen seed workers get up to 2 additional open tasks each.
+--     Drawn at random on every run; the UNIQUE (task_id, worker_id) constraint
+--     plus cleanup make re-runs safe.
+-- -------------------------------
+WITH extra_workers AS (
+  SELECT id
+  FROM public.profiles
+  WHERE role = 'worker'
+    AND email IN (SELECT email FROM seed_workers)
+  ORDER BY random()
+  LIMIT 8
+),
+candidates AS (
+  SELECT
+    t.id AS task_id,
+    w.id AS worker_id,
+    row_number() OVER (PARTITION BY w.id ORDER BY random()) AS rn
+  FROM public.tasks t
+  JOIN extra_workers w ON true
+  WHERE t.id::text LIKE '20000000-0000-4000-8000-0000%'
+    AND t.status <> 'completed'
+    AND NOT EXISTS (
+      SELECT 1 FROM public.task_assignments ta
+      WHERE ta.task_id = t.id
+        AND ta.worker_id = w.id
+    )
+)
+INSERT INTO public.task_assignments (task_id, worker_id, assigned_by)
+SELECT c.task_id, c.worker_id, m.id
+FROM candidates c
+CROSS JOIN seed_manager m
+WHERE c.rn <= 2
+ON CONFLICT (task_id, worker_id) DO NOTHING;
+
+-- -------------------------------
 -- 9) PROGRESS REPORTS  (21)
 -- -------------------------------
 INSERT INTO public.progress_reports (project_id, title, content, created_by, created_at)
@@ -551,6 +591,40 @@ FROM (VALUES
   ('10000000-0000-4000-8000-000000000015', 'Fed Secretariat Annex — Handover Summary',
    'Post-handover support is underway with the facility management team. Defects liability period runs for twelve months. Documentation and as-built drawings have been delivered to the client.',
    '2026-06-15 11:45:00+00')
+) AS r(project_id, title, content, created_at)
+CROSS JOIN seed_manager m;
+
+-- -------------------------------
+-- 9b) AUGUST PROGRESS REPORTS  (8)
+--     Continue the July storylines into late August.
+-- -------------------------------
+INSERT INTO public.progress_reports (project_id, title, content, created_by, created_at)
+SELECT r.project_id::uuid, r.title, r.content, m.id, r.created_at::timestamptz
+FROM (VALUES
+  ('10000000-0000-4000-8000-000000000002', 'Borehole Network — Drilling Subcontract Award',
+   'The drilling subcontract has been awarded to the second-ranked bidder after commercial clarifications. Rig mobilisation is scheduled for September ahead of the hydrogeological survey. Solar pumping and storage specifications have been aligned with FCT Water Board requirements to smooth permit approval.',
+   '2026-08-05 10:30:00+00'),
+  ('10000000-0000-4000-8000-000000000011', 'Karsana Housing — Survey Tender Award',
+   'A licensed survey firm has been engaged for boundary demarcation and topographical mapping of the 250-unit site. Soil investigation boreholes will follow immediately after demarcation. Community liaison remains constructive, with access routes agreed through the district head''s office.',
+   '2026-08-06 09:15:00+00'),
+  ('10000000-0000-4000-8000-000000000001', 'Lower Usuma — Intake Milestone Reached',
+   'The reinforced concrete intake structure has passed 75% completion following practical completion of the stop-log bay pours. Formwork for the screening chamber is being fixed, and the second batch plant keeps concrete supply steady. Pipeline trenching crews are expected on site within two weeks.',
+   '2026-08-07 11:45:00+00'),
+  ('10000000-0000-4000-8000-000000000005', 'Idu Trunk Main — Final Stretch Resumed',
+   'With the overhead HV line relocation complete, pipe laying has resumed on the final 600 m stretch near the ring road. Two laying gangs are working opposing heads to compress the programme, with jointing crews closing up behind them. Pressure testing of the new sections follows once tie-in welds are inspected.',
+   '2026-08-12 10:00:00+00'),
+  ('10000000-0000-4000-8000-000000000006', 'Wuse Plaza — Raft Pour Completed',
+   'The 1,200 m³ raft foundation pour was completed over three consecutive nights using two pumping crews, avoiding cold joints as sequenced with the ready-mix supplier. Cube samples returned satisfactory early strengths. Frame erection steel for floors 1–3 is arriving and the steel crew mobilises next week.',
+   '2026-08-14 15:40:00+00'),
+  ('10000000-0000-4000-8000-000000000010', 'Block E Flats — Masonry at Roof Level',
+   'Blockwork on Block E1 has reached roof level and E2 is at third-floor level. Ring beam reinforcement is being fixed on E1 while scaffold is repositioned. Internal plastering crews have mobilised on E1 ground floor so finishing tracks structure floor-by-floor behind the blockwork.',
+   '2026-08-18 09:30:00+00'),
+  ('10000000-0000-4000-8000-000000000013', 'FCT Road Rehab — Resurfacing Underway',
+   'Milling along the Jabi to Wuse corridor is complete, with resurfacing advancing from the Jabi end at roughly 800 m per night under the night-work window. Base repairs over the replaced culverts have passed density testing. Line marking crews follow once the final asphalt course is placed.',
+   '2026-08-20 14:15:00+00'),
+  ('10000000-0000-4000-8000-000000000001', 'Lower Usuma — Trenching Commences',
+   'Trench excavation on the Bwari trunk line has commenced from the intake manifold, with 300 m opened and bedded to specification. Rock notice areas flagged during the survey are being worked with hydraulic breakers on night shifts to protect daytime concrete operations.',
+   '2026-08-24 09:50:00+00')
 ) AS r(project_id, title, content, created_at)
 CROSS JOIN seed_manager m;
 

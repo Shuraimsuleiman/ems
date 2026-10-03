@@ -4,15 +4,18 @@
 -- Seeds:
 --   14 worker accounts (10 Hausa + 4 non-Hausa Nigerian names) directly in
 --   Supabase Auth, their profiles, and attendance logs starting 29 Jul 2026.
---   15 Abuja projects (water infrastructure, Wuse/Gwarimpa/Karsana buildings,
---   and federal government contracts) across all 5 project statuses.
---   39 tasks, worker assignments plus random extra assignments for a handful
---   of workers (redrawn on every run), and 29 progress reports attributed to
+--   21 Abuja projects (water infrastructure, Wuse/Gwarimpa/Karsana buildings,
+--   federal government contracts, and private residential work — renovations
+--   and 6-8 unit terrace developments) across all 5 project statuses.
+--   56 tasks, worker assignments plus random extra assignments for a handful
+--   of workers (redrawn on every run), and 35 progress reports attributed to
 --   the first existing admin/manager profile (runtime lookup).
 --
 --   • Emails:        @gmail.com
 --   • Password:      ConstructPro123!  (shared by all seed workers)
---   • Attendance:    Wed 2026-07-29 -> Tue 2026-08-25 (weekdays only, ~90% kept)
+--   • Attendance:    Wed 2026-07-29 -> Tue 2026-09-29 · weekends normally
+--                    skipped, except 3 random workers on weekends · ~90% kept
+--                    · 25 Aug 2026 excluded
 --   • Check-in:      9:00 - 9:40 AM  (stored as UTC, i.e. 08:00 - 08:40)
 --   • Check-out:     5:00 - 6:00 PM  (stored as UTC, i.e. 16:00 - 17:00)
 --
@@ -174,9 +177,18 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- -------------------------------
 -- 5) ATTENDANCE LOGS
---    29 Jul -> 25 Aug 2026 · weekdays only · ~90% attendance
+--    29 Jul -> 29 Sep 2026 · weekends skipped, except 3 random workers
+--    25 Aug 2026 excluded · ~90% attendance
 --    check-in 08:00-08:40 UTC · check-out 16:00-17:00 UTC
 -- -------------------------------
+WITH weekend_workers AS (
+  SELECT id
+  FROM public.profiles
+  WHERE role = 'worker'
+    AND email IN (SELECT email FROM seed_workers)
+  ORDER BY random()
+  LIMIT 3
+)
 INSERT INTO public.attendance_logs (worker_id, date, check_in, check_out)
 SELECT
   p.id,
@@ -190,14 +202,18 @@ SELECT
      + make_interval(mins => floor(random() * 61)::int, secs => floor(random() * 60)::int)
    ) AT TIME ZONE 'UTC' AS check_out
 FROM public.profiles p
-CROSS JOIN generate_series('2026-07-29'::date, '2026-08-25'::date, interval '1 day') AS days(d)
+CROSS JOIN generate_series('2026-07-29'::date, '2026-09-29'::date, interval '1 day') AS days(d)
 WHERE p.role = 'worker'
   AND p.email IN (SELECT email FROM seed_workers)
-  AND EXTRACT(ISODOW FROM d) < 6   -- Mon-Fri only, skip weekends
-  AND random() >= 0.10;            -- ~90% attendance, ~10% absent
+  AND d::date <> '2026-08-25'::date
+  AND (
+       EXTRACT(ISODOW FROM d) < 6                                          -- weekdays: everyone
+    OR (EXTRACT(ISODOW FROM d) >= 6 AND p.id IN (SELECT id FROM weekend_workers))  -- weekends: 3 only
+  )
+  AND random() >= 0.10;            -- ~90% attendance for everyone
 
 -- -------------------------------
--- 6) PROJECTS  (15 · all 5 statuses)
+-- 6) PROJECTS  (21 · all 5 statuses)
 -- -------------------------------
 INSERT INTO public.projects (id, name, description, location, status, start_date, end_date, created_by, created_at)
 SELECT p.id::uuid, p.name, p.description, p.location, p.status::project_status, p.start_date::date, p.end_date::date, m.id, p.created_at::timestamptz
@@ -246,12 +262,34 @@ FROM (VALUES
    'Three Arms Zone, Abuja', 'on_hold', '2026-06-01', '2027-04-30', '2026-04-01 13:00:00+00'),
   ('10000000-0000-4000-8000-000000000015', 'Federal Secretariat Annex Construction',
    'Construction of an annex building to the Federal Secretariat, providing additional office accommodation in the Central Area.',
-   'Central Area, Abuja', 'completed', '2025-09-15', '2026-05-31', '2025-08-01 09:00:00+00')
+   'Central Area, Abuja', 'completed', '2025-09-15', '2026-05-31', '2025-08-01 09:00:00+00'),
+
+  -- -----------------------------
+  -- Private sector (client-funded)
+  -- -----------------------------
+  ('10000000-0000-4000-8000-000000000016', 'Maitama Heights Duplex Full Renovation',
+   'Strip-out and full refurbishment of a 5-bedroom duplex in Maitama Heights, covering structural repairs, new services, joinery, tiling and interior finishes.',
+   'Maitama Heights, Abuja', 'active', '2026-06-15', '2026-10-30', '2026-05-28 10:20:00+00'),
+  ('10000000-0000-4000-8000-000000000017', 'Asokoro Garden Court Renovation',
+   'Renovation of three serviced units in Asokoro, including kitchen and bathroom refits, re-roofing with long-span sheets, and external repainting.',
+   'Asokoro, Abuja', 'active', '2026-07-01', '2026-09-30', '2026-06-10 11:05:00+00'),
+  ('10000000-0000-4000-8000-000000000018', 'Gana Street Terrace Development — 8 Units',
+   'Development of eight 4-bedroom terrace houses on a narrow Gana Street plot, with shared access, parking and perimeter walling.',
+   'Gana Street, Wuse, Abuja', 'active', '2026-05-20', '2027-04-30', '2026-04-30 08:40:00+00'),
+  ('10000000-0000-4000-8000-000000000019', 'Kubwa Links Terraces — 6 Units',
+   'Six 3-bedroom terrace units at Kubwa Links, delivered as two blocks of three with a shared services yard and standalone carports.',
+   'Kubwa Links, Abuja', 'planning', '2026-10-05', '2027-09-30', '2026-08-11 14:15:00+00'),
+  ('10000000-0000-4000-8000-000000000020', 'Gwarimpa Court Refurbishment — 7 Blocks',
+   'Refurbishment of seven terrace blocks in Gwarimpa Court, including roof replacement, soffit and fascia work, repainting and driveway reinstatement.',
+   'Gwarimpa Court, Abuja', 'on_hold', '2026-04-01', '2026-12-15', '2026-03-18 09:30:00+00'),
+  ('10000000-0000-4000-8000-000000000021', 'Lugard Terrace Extension — Private Client',
+   'Single-storey terrace extension and full interior remodel for a private client in Lugard, including an additional two-bedroom wing and new external works.',
+   'Lugard, Abuja', 'completed', '2025-10-06', '2026-06-26', '2025-09-12 10:50:00+00')
 ) AS p(id, name, description, location, status, start_date, end_date, created_at)
 CROSS JOIN seed_manager m;
 
 -- -------------------------------
--- 7) TASKS  (39 · mixed statuses & priorities)
+-- 7) TASKS  (55 · mixed statuses & priorities)
 -- -------------------------------
 INSERT INTO public.tasks (id, project_id, title, description, status, priority, deadline, created_by, created_at)
 SELECT t.id::uuid, t.project_id::uuid, t.title, t.description, t.status::task_status, t.priority::task_priority, t.deadline::timestamptz, m.id, t.created_at::timestamptz
@@ -387,7 +425,68 @@ FROM (VALUES
    'completed', 'high', '2026-02-28 12:00:00+00', '2025-09-20 09:00:00+00'),
   ('20000000-0000-4000-8000-000000000039', '10000000-0000-4000-8000-000000000015', 'MEP fit-out & testing',
    'Mechanical, electrical and plumbing fit-out with final testing and certification.',
-   'completed', 'medium', '2026-05-15 12:00:00+00', '2025-12-01 10:30:00+00')
+   'completed', 'medium', '2026-05-15 12:00:00+00', '2025-12-01 10:30:00+00'),
+
+  -- -----------------------------
+  -- Private sector tasks (P16-P21)
+  -- -----------------------------
+  -- Maitama Heights Duplex Full Renovation (P16)
+  ('20000000-0000-4000-8000-000000000040', '10000000-0000-4000-8000-000000000016', 'Strip-out and structural repairs',
+   'Strip-out of existing finishes, removal of internal partitions where required, and repair of cracked slab and columns flagged in the structural survey.',
+   'in_progress', 'urgent', '2026-07-31 12:00:00+00', '2026-06-01 09:00:00+00'),
+  ('20000000-0000-4000-8000-000000000041', '10000000-0000-4000-8000-000000000016', 'New services rough-in (MEP)',
+   'First-fix electrical, mechanical and plumbing rough-in for the duplex, including new consumer unit, AC points and full bathroom re-pipework.',
+   'in_progress', 'high', '2026-08-28 12:00:00+00', '2026-06-01 09:00:00+00'),
+  ('20000000-0000-4000-8000-000000000042', '10000000-0000-4000-8000-000000000016', 'Interior joinery & finishes',
+   'Kitchen joinery, wardrobes, wall tiling and final paint finishes, from first fix through to snag-ready handover.',
+   'pending', 'medium', '2026-10-15 12:00:00+00', '2026-07-08 11:20:00+00'),
+  -- Asokoro Garden Court Renovation (P17)
+  ('20000000-0000-4000-8000-000000000043', '10000000-0000-4000-8000-000000000017', 'Roof replacement — long-span sheets',
+   'Removal of existing roof covering and installation of long-span aluminium sheets with new flashings and gutters across the three units.',
+   'in_progress', 'high', '2026-08-20 12:00:00+00', '2026-06-15 08:45:00+00'),
+  ('20000000-0000-4000-8000-000000000044', '10000000-0000-4000-8000-000000000017', 'Kitchen & bathroom refit',
+   'Full kitchen and bathroom refit for three serviced units, including sanitary fittings, worktops and associated tiling.',
+   'in_progress', 'high', '2026-09-10 12:00:00+00', '2026-06-15 08:45:00+00'),
+  ('20000000-0000-4000-8000-000000000045', '10000000-0000-4000-8000-000000000017', 'External repainting & snagging',
+   'External wash-down, repainting, landscaping reinstatement and final snagging before client walkthrough.',
+   'pending', 'low', '2026-09-25 12:00:00+00', '2026-07-20 10:10:00+00'),
+  -- Gana Street Terrace Development — 8 Units (P18)
+  ('20000000-0000-4000-8000-000000000046', '10000000-0000-4000-8000-000000000018', 'Site setting out & bulk earthworks',
+   'Setting out of eight terrace units on the narrow plot, bulk earthworks and formation of the shared access road.',
+   'completed', 'high', '2026-07-10 12:00:00+00', '2026-05-05 07:45:00+00'),
+  ('20000000-0000-4000-8000-000000000047', '10000000-0000-4000-8000-000000000018', 'RCC slab construction — units 1-4',
+   'Ground and first-floor slab construction for the first four terrace units, including reinforcement fixing and concrete placement.',
+   'in_progress', 'urgent', '2026-09-20 12:00:00+00', '2026-06-22 09:30:00+00'),
+  ('20000000-0000-4000-8000-000000000048', '10000000-0000-4000-8000-000000000018', 'Blockwork to first floor level — units 1-4',
+   'Sandcrete blockwork, lintels and ring beam to first floor level for units 1-4, including internal partitions.',
+   'pending', 'high', '2026-11-10 12:00:00+00', '2026-07-06 10:00:00+00'),
+  ('20000000-0000-4000-8000-000000000049', '10000000-0000-4000-8000-000000000018', 'Perimeter walling & parking',
+   'Perimeter walling, gate installation, parking bays and external hardstanding for the terrace development.',
+   'pending', 'medium', '2026-12-15 12:00:00+00', '2026-08-04 11:25:00+00'),
+  -- Kubwa Links Terraces — 6 Units (P19)
+  ('20000000-0000-4000-8000-000000000050', '10000000-0000-4000-8000-000000000019', 'Detailed design & client sign-off',
+   'Detailed architectural and structural drawings for the six units, with client sign-off on finishes and layout before construction begins.',
+   'pending', 'high', '2026-11-20 12:00:00+00', '2026-08-15 09:15:00+00'),
+  ('20000000-0000-4000-8000-000000000051', '10000000-0000-4000-8000-000000000019', 'Materials procurement & site setup',
+   'Procurement of blockwork and finishing materials, plus site establishment, temporary utilities and hoarding for the Kubwa Links site.',
+   'pending', 'medium', '2026-12-10 12:00:00+00', '2026-08-15 09:15:00+00'),
+  -- Gwarimpa Court Refurbishment — 7 Blocks (P20)
+  ('20000000-0000-4000-8000-000000000052', '10000000-0000-4000-8000-000000000020', 'Soffit, fascia & gutter works',
+   'Soffit and fascia replacement with new guttering and downpipes across the seven terrace blocks.',
+   'completed', 'medium', '2026-07-24 12:00:00+00', '2026-04-10 10:30:00+00'),
+  ('20000000-0000-4000-8000-000000000053', '10000000-0000-4000-8000-000000000020', 'Roof replacement — phase 1',
+   'Full roof covering replacement on the first three blocks, currently paused while the client reviews material options.',
+   'pending', 'high', '2026-10-30 12:00:00+00', '2026-04-10 10:30:00+00'),
+  ('20000000-0000-4000-8000-000000000054', '10000000-0000-4000-8000-000000000020', 'Driveway reinstatement & repainting',
+   'Reinstatement of driveways and external repainting of the seven blocks once the roof covering decision is confirmed.',
+   'pending', 'low', '2026-12-10 12:00:00+00', '2026-06-28 08:20:00+00'),
+  -- Lugard Terrace Extension (P21)
+  ('20000000-0000-4000-8000-000000000055', '10000000-0000-4000-8000-000000000021', 'Two-bedroom wing construction',
+   'Construction of the additional single-storey two-bedroom wing, including foundation, blockwork and roof covering.',
+   'completed', 'high', '2026-04-10 12:00:00+00', '2025-10-20 09:00:00+00'),
+  ('20000000-0000-4000-8000-000000000056', '10000000-0000-4000-8000-000000000021', 'Interior remodel & finishes',
+   'Full interior remodel across the existing house and new wing, including joinery, tiling, painting and electrical upgrades.',
+   'completed', 'medium', '2026-06-20 12:00:00+00', '2026-01-15 11:35:00+00')
 ) AS t(id, project_id, title, description, status, priority, deadline, created_at)
 CROSS JOIN seed_manager m;
 
@@ -481,7 +580,52 @@ FROM (VALUES
   ('20000000-0000-4000-8000-000000000038', 'ngozi.eze@gmail.com'),
   ('20000000-0000-4000-8000-000000000039', 'aliyu.mohammed@gmail.com'),
   ('20000000-0000-4000-8000-000000000039', 'chinedu.okafor@gmail.com'),
-  ('20000000-0000-4000-8000-000000000039', 'hauwa.ibrahim@gmail.com')
+  ('20000000-0000-4000-8000-000000000039', 'hauwa.ibrahim@gmail.com'),
+  -- Private sector assignments (P16-P21)
+  ('20000000-0000-4000-8000-000000000040', 'musa.abdullahi@gmail.com'),
+  ('20000000-0000-4000-8000-000000000040', 'ibrahim.sani@gmail.com'),
+  ('20000000-0000-4000-8000-000000000040', 'umar.garba@gmail.com'),
+  ('20000000-0000-4000-8000-000000000041', 'aliyu.mohammed@gmail.com'),
+  ('20000000-0000-4000-8000-000000000041', 'emeka.obi@gmail.com'),
+  ('20000000-0000-4000-8000-000000000041', 'funke.adeyemi@gmail.com'),
+  ('20000000-0000-4000-8000-000000000042', 'najaatu.khalid@gmail.com'),
+  ('20000000-0000-4000-8000-000000000042', 'zainab.umar@gmail.com'),
+  ('20000000-0000-4000-8000-000000000043', 'suleiman.adamu@gmail.com'),
+  ('20000000-0000-4000-8000-000000000043', 'chinedu.okafor@gmail.com'),
+  ('20000000-0000-4000-8000-000000000044', 'amina.bello@gmail.com'),
+  ('20000000-0000-4000-8000-000000000044', 'hauwa.ibrahim@gmail.com'),
+  ('20000000-0000-4000-8000-000000000044', 'ngozi.eze@gmail.com'),
+  ('20000000-0000-4000-8000-000000000045', 'fatima.yusuf@gmail.com'),
+  ('20000000-0000-4000-8000-000000000045', 'emeka.obi@gmail.com'),
+  ('20000000-0000-4000-8000-000000000046', 'ibrahim.sani@gmail.com'),
+  ('20000000-0000-4000-8000-000000000046', 'umar.garba@gmail.com'),
+  ('20000000-0000-4000-8000-000000000047', 'musa.abdullahi@gmail.com'),
+  ('20000000-0000-4000-8000-000000000047', 'aliyu.mohammed@gmail.com'),
+  ('20000000-0000-4000-8000-000000000047', 'chinedu.okafor@gmail.com'),
+  ('20000000-0000-4000-8000-000000000048', 'suleiman.adamu@gmail.com'),
+  ('20000000-0000-4000-8000-000000000048', 'zainab.umar@gmail.com'),
+  ('20000000-0000-4000-8000-000000000048', 'hauwa.ibrahim@gmail.com'),
+  ('20000000-0000-4000-8000-000000000049', 'amina.bello@gmail.com'),
+  ('20000000-0000-4000-8000-000000000049', 'najaatu.khalid@gmail.com'),
+  ('20000000-0000-4000-8000-000000000049', 'ngozi.eze@gmail.com'),
+  ('20000000-0000-4000-8000-000000000050', 'funke.adeyemi@gmail.com'),
+  ('20000000-0000-4000-8000-000000000050', 'zainab.umar@gmail.com'),
+  ('20000000-0000-4000-8000-000000000050', 'umar.garba@gmail.com'),
+  ('20000000-0000-4000-8000-000000000051', 'ibrahim.sani@gmail.com'),
+  ('20000000-0000-4000-8000-000000000051', 'emeka.obi@gmail.com'),
+  ('20000000-0000-4000-8000-000000000052', 'fatima.yusuf@gmail.com'),
+  ('20000000-0000-4000-8000-000000000052', 'najaatu.khalid@gmail.com'),
+  ('20000000-0000-4000-8000-000000000052', 'chinedu.okafor@gmail.com'),
+  ('20000000-0000-4000-8000-000000000053', 'umar.garba@gmail.com'),
+  ('20000000-0000-4000-8000-000000000053', 'aliyu.mohammed@gmail.com'),
+  ('20000000-0000-4000-8000-000000000053', 'hauwa.ibrahim@gmail.com'),
+  ('20000000-0000-4000-8000-000000000054', 'suleiman.adamu@gmail.com'),
+  ('20000000-0000-4000-8000-000000000054', 'amina.bello@gmail.com'),
+  ('20000000-0000-4000-8000-000000000055', 'ibrahim.sani@gmail.com'),
+  ('20000000-0000-4000-8000-000000000055', 'musa.abdullahi@gmail.com'),
+  ('20000000-0000-4000-8000-000000000056', 'amina.bello@gmail.com'),
+  ('20000000-0000-4000-8000-000000000056', 'ngozi.eze@gmail.com'),
+  ('20000000-0000-4000-8000-000000000056', 'funke.adeyemi@gmail.com')
 ) AS a(task_id, worker_email)
 JOIN public.profiles p ON p.email = a.worker_email
 CROSS JOIN seed_manager m;
@@ -595,8 +739,8 @@ FROM (VALUES
 CROSS JOIN seed_manager m;
 
 -- -------------------------------
--- 9b) AUGUST PROGRESS REPORTS  (8)
---     Continue the July storylines into late August.
+-- 9b) AUGUST–SEPTEMBER PROGRESS REPORTS  (14)
+--     Continue the July storylines into late August and September.
 -- -------------------------------
 INSERT INTO public.progress_reports (project_id, title, content, created_by, created_at)
 SELECT r.project_id::uuid, r.title, r.content, m.id, r.created_at::timestamptz
@@ -624,7 +768,29 @@ FROM (VALUES
    '2026-08-20 14:15:00+00'),
   ('10000000-0000-4000-8000-000000000001', 'Lower Usuma — Trenching Commences',
    'Trench excavation on the Bwari trunk line has commenced from the intake manifold, with 300 m opened and bedded to specification. Rock notice areas flagged during the survey are being worked with hydraulic breakers on night shifts to protect daytime concrete operations.',
-   '2026-08-24 09:50:00+00')
+   '2026-08-24 09:50:00+00'),
+
+  -- -----------------------------
+  -- Private sector progress (P16-P21)
+  -- -----------------------------
+  ('10000000-0000-4000-8000-000000000016', 'Maitama Heights — Strip-out Complete',
+   'Strip-out is complete and the structural survey repairs are largely closed out, with two slab areas left pending rebar inspection by the structural engineer. Site security and dust screening have been tightened given the occupied neighbourhood.',
+   '2026-08-13 10:20:00+00'),
+  ('10000000-0000-4000-8000-000000000017', 'Asokoro — Roofing Progress',
+   'Long-span sheet installation is 70% complete across the three units, with flashings and gutters following behind the sheeting crew. Bathroom refit has started on the first unit with the remaining two sequenced through September.',
+   '2026-08-25 12:10:00+00'),
+  ('10000000-0000-4000-8000-000000000018', 'Gana Street Terraces — Slabs Poured',
+   'Ground and first-floor slabs for units 1-2 have been poured with satisfactory cube results, and reinforcement fixing for units 3-4 is underway. The narrow access is proving tight for the mixer fleet, so pours are being booked in smaller batches.',
+   '2026-09-02 08:50:00+00'),
+  ('10000000-0000-4000-8000-000000000020', 'Gwarimpa Court — Refurbishment Hold',
+   'Soffit, fascia and gutter works are complete across all seven blocks. The roof covering phase remains on hold pending the client decision on material options; the client has requested a revised quotation before resuming.',
+   '2026-08-19 15:30:00+00'),
+  ('10000000-0000-4000-8000-000000000019', 'Kubwa Links Terraces — Design Review',
+   'Draft design for the six units has been issued to the client for review, with the two-block layout and shared services yard reflected in the revision. Detailed drawings and the BOQ follow once comments are returned.',
+   '2026-09-08 11:00:00+00'),
+  ('10000000-0000-4000-8000-000000000021', 'Lugard Extension — Handover',
+   'The two-bedroom wing and interior remodel have been completed and the snag list closed with the client. Final accounts are being prepared and the defects liability period commences on handover.',
+   '2026-07-02 09:40:00+00')
 ) AS r(project_id, title, content, created_at)
 CROSS JOIN seed_manager m;
 
